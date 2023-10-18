@@ -1,16 +1,18 @@
 from data_utils import shared_utils
+import json
 
 
 class LabelParser(object):
-    def __init__(self, label_col, elem_col, intermittent=False):
+    def __init__(self, labels_col, elem_col, intermittent=False):
         """
-        :param label_col:
-        :param elem_col: ["entity_1", "entity_2", "aspect", "result"]
-        :param intermittent: True denote "result" using intermittent representation
+        :param labels_col:
+        :param elem_col: ["subject", "object", "aspect", "predicate"]
+        :param intermittent: True denote "predicate" using intermittent representation
         """
-        self.label_col = label_col
+        self.labels_col = labels_col
         self.elem_col = elem_col
         self.intermittent = intermittent
+        self.elem_index = {"subject": 0, "object": 1, "aspect": 2, "predicate": 3, "label": 4}
 
     def parse_sequence_label(self, split_symbol="&", sent_col=None, file_type="cn"):
         """
@@ -19,99 +21,78 @@ class LabelParser(object):
         :param file_type
         :return:
         """
-        null_label = "[[];[];[];[];[]]"
-        tuple_pair_col, elem_representation_col = [], []
+        NULL_LABEL = '{"subject":[],"object":[],"aspect":[],"predicate":[],"label":""}';
+        pair_tuple_col, elem_representation_col = [], []
 
-        for index in range(len(self.label_col)):
-            # For non-comparative sentences' label.
-            if self.label_col[index][0] == null_label:
-                tuple_pair_col.append([[(-1, -1)] * 5])
-                elem_representation_col.append(self.init_label_representation())
 
-            else:
-                global_elem_col = self.init_label_representation()
+        for row_index in range(len(self.labels_col)):
+            sentence = sent_col[row_index]
 
-                sequence_tuple_pair = []
-                for pair_index in range(len(self.label_col[index])):
-                    global_elem_col, cur_tuple_pair = self.parse_each_pair_label(
-                        self.label_col[index][pair_index], global_elem_col, split_symbol, sent_col[index], file_type
-                    )
-                    sequence_tuple_pair.append(cur_tuple_pair)
+            if self.labels_col[row_index][0] == NULL_LABEL:
+                # print("?")
+                pair_tuple_col.append([[(-1, -1)] * 5])
+                elem_representation_col.append(self.init_elem_representation())
+                continue
 
-                tuple_pair_col.append(sequence_tuple_pair)
-                elem_representation_col.append(global_elem_col)
+            elem_set = self.init_elem_representation()
 
-        return elem_representation_col, tuple_pair_col
+            pair_tuple_sequence = []
+            for label in self.labels_col[row_index]:
+                # print('label: ', label)
+                elem_set, cur_pair_tuple = self.parse_each_pair_label(
+                    label, elem_set, split_symbol, sentence, file_type
+                )
+                pair_tuple_sequence.append(cur_pair_tuple)
 
-    def parse_each_pair_label(self, sequence_label, global_elem_col, split_symbol, sent=None, file_type="cn"):
+
+            # print('pair_tuple_sequence: ', pair_tuple_sequence)
+            # print('elem_set: ', elem_set)
+            pair_tuple_col.append(pair_tuple_sequence)
+            elem_representation_col.append(elem_set)
+
+        return elem_representation_col, pair_tuple_col
+
+    def parse_each_pair_label(self, label, elem_set, split_symbol, sent=None, file_type="cn"):
         """
-        :param sequence_label:
-        :param global_elem_col:
+        :param label:
+        :param elem_set:
         :param split_symbol:
         :param sent:
         :param file_type:
         :return:
         """
-        elem_representation = shared_utils.split_string(sequence_label[1:-1], ";")
-        tuple_pair_representation, result_elem = [], []
-        for elem_index, each_elem in enumerate(elem_representation):
-            if elem_index == 3 and each_elem == "[]":
-                print(elem_representation)
-            if self.intermittent:
-                seg_elem_col = shared_utils.split_string(each_elem[1: -1], " , ")
-            else:
-                seg_elem_col = [each_elem[1: -1]] if each_elem[1:-1] != "" else []
-
-            elem_tuple = ()
-
-            # not polarity
-            if elem_index != len(elem_representation) - 1:
-                for each_seg_elem in seg_elem_col:
-                    number_char_col = shared_utils.split_string(each_seg_elem, " ")
-
+        parsed_label = json.loads(label)
+        # elem_representation = shared_utils.split_string(label[1:-1], ";")
+        pair_tuple_representation = [None] * 5
+        result_elem = [-1, -1, 0]
+        for key, value in parsed_label.items():
+            elem_tuple = (-1, -1)
+            if key != "label":
+                if len(value) > 0:
                     if file_type == "cn":
-                        s_index = int(shared_utils.split_string(number_char_col[0], split_symbol)[0])
-                        e_index = int(shared_utils.split_string(number_char_col[-1], split_symbol)[0]) + 1
+                        s_index = int(shared_utils.split_string(value[0], split_symbol)[0])
+                        e_index = int(shared_utils.split_string(value[-1], split_symbol)[0]) + 1
                     else:
-                        s_index = int(shared_utils.split_string(number_char_col[0], split_symbol)[0]) - 1
-                        e_index = int(shared_utils.split_string(number_char_col[-1], split_symbol)[0])
+                        s_index = int(shared_utils.split_string(value[0], split_symbol)[0]) - 1
+                        e_index = int(shared_utils.split_string(value[-1], split_symbol)[0])
 
-                    elem_tuple += (s_index, e_index)
-
-                    if self.elem_col[elem_index] == "result":
-                        result_elem += [s_index, e_index]
-
-                    # [check sentence and label position]
-                    # if sent is not None:
-                    #     cur_elem_str = self.get_sub_elem(number_char_col, split_symbol)
-                    #
-                    #     if cur_elem_str != sent[s_index: e_index]:
-                    #         print("----------------------------")
-                    #         print(cur_elem_str)
-                    #         print(sent[s_index: e_index])
-                    #         print(s_index, e_index)
-                    #         print(number_char_col)
-                    #         print("----------------------------")
+                    elem_tuple = (s_index, e_index)
 
             else:
-                polarity = int(seg_elem_col[0])
-                elem_tuple += (polarity, polarity)
+                polarity = 1 if value[-1] == '+' else -1 if value[-1] == '-' else 0
+                elem_tuple = (polarity, polarity)
+                result_elem[2] = polarity
+            
+            if key == "predicate":
+                result_elem[0:2] = elem_tuple
+            elif key != "label":
+                elem_set[key].add(elem_tuple)
 
-                # 针对英文中可能存在空的情况
-                if len(result_elem) == 0:
-                    result_elem = [-1, -1]
+            pair_tuple_representation[self.elem_index[key]] = elem_tuple
 
-                result_elem.append(polarity)
+        elem_set["predicate"].add(tuple(result_elem))
 
-            elem_tuple = (-1, -1) if len(elem_tuple) == 0 else elem_tuple
-            tuple_pair_representation.append(elem_tuple)
-
-            if elem_index < 3 and elem_tuple != (-1, -1):
-                global_elem_col[self.elem_col[elem_index]].add(elem_tuple)
-
-        global_elem_col["result"].add(tuple(result_elem))
-
-        return global_elem_col, tuple_pair_representation
+        return elem_set, pair_tuple_representation
 
     @staticmethod
     def get_sub_elem(number_char_col, split_symbol):
@@ -126,5 +107,5 @@ class LabelParser(object):
 
         return elem_str
 
-    def init_label_representation(self):
+    def init_elem_representation(self):
         return {key: set() for key in self.elem_col}

@@ -10,7 +10,7 @@ class BaseEvaluation(object):
     def __init__(self, config, elem_col=None, ids_to_tags=None, fold=0, save_model=False):
         """
         :param config: program config table.
-        :param elem_col: ["entity_1", "entity_2", "aspect", "scale", "predicate"].
+        :param elem_col: ["subject", "object", "aspect", "scale", "predicate"].
         :param ids_to_tags: {0: "O", 1: "B-entity_1"}.
         :param save_model: True denote save model by optimize exact measure.
         """
@@ -112,13 +112,13 @@ class BaseEvaluation(object):
         elem_label_ids, result_label_ids = target
         for i in range(len(result_label_ids)):
             seq_elem = self.sequence_label_convert_dict(
-                result_label_ids[i], {}, "result"
+                result_label_ids[i], {}, "predicate"
             )
             elem_col.append(seq_elem)
 
         assert len(elem_col) == len(elem_label_ids), "label length error!"
 
-        elem_key = ["entity_1", "entity_2", "aspect", "result"]
+        elem_key = ["subject", "object", "aspect", "predicate"]
 
         for i in range(len(elem_col)):
             for j in range(len(elem_label_ids[i])):
@@ -301,7 +301,7 @@ class BaseEvaluation(object):
         if not multi_elem_score:
             return result_dict
 
-        base_elem_col = ["entity_1", "entity_2", "aspect", "result"]
+        base_elem_col = ["subject", "object", "aspect", "predicate"]
 
         result_dict = self.get_macro_measure(result_dict, base_elem_col, elem_name="macro")
         result_dict = self.get_micro_measure(
@@ -395,8 +395,8 @@ class BaseEvaluation(object):
     ####################################################################################################################
     def get_pair_num(self, gold_pair_col, predict_pair_col, polarity=False):
         """
-        :param gold_pair_col: [n, tuple_pair]
-        :param predict_pair_col: [n, tuple_pair]
+        :param gold_pair_col: [n, pair_tuple]
+        :param predict_pair_col: [n, pair_tuple]
         :param polarity:
         :return:
         """
@@ -408,8 +408,8 @@ class BaseEvaluation(object):
     @staticmethod
     def get_exact_pair_num(gold_col, predict_col, polarity=False):
         """
-        :param gold_col: [gold_pair_num, tuple_pair]
-        :param predict_col: [predict_pair_num, tuple_pair]
+        :param gold_col: [gold_pair_num, pair_tuple]
+        :param predict_col: [predict_pair_num, pair_tuple]
         :param polarity
         :return: correct_num.
         """
@@ -453,10 +453,10 @@ class BaseEvaluation(object):
         return correct_num
 
     @staticmethod
-    def pair_is_cover(gold_tuple_pair, predict_tuple_pair, polarity=False):
+    def pair_is_cover(gold_pair_tuple, predict_pair_tuple, polarity=False):
         """
-        :param gold_tuple_pair: [(s_index, e_index)]
-        :param predict_tuple_pair: [(s_index, e_index)]
+        :param gold_pair_tuple: [(s_index, e_index)]
+        :param predict_pair_tuple: [(s_index, e_index)]
         :param polarity: False denote without polarity, True denote with polarity
         :return:
         """
@@ -464,12 +464,12 @@ class BaseEvaluation(object):
         gold_elem_length, cover_elem_length = 0, 0
 
         for index in range(4):
-            if gold_tuple_pair[index] == null_elem and predict_tuple_pair[index] == null_elem:
+            if gold_pair_tuple[index] == null_elem and predict_pair_tuple[index] == null_elem:
                 continue
 
-            cur_gold_length = gold_tuple_pair[index][1] - gold_tuple_pair[index][0]
+            cur_gold_length = gold_pair_tuple[index][1] - gold_pair_tuple[index][0]
             cur_cover_length = shared_utils.cover_rate(
-                gold_tuple_pair[index], predict_tuple_pair[index], proportion=False
+                gold_pair_tuple[index], predict_pair_tuple[index], proportion=False
             )
 
             if cur_cover_length > 0:
@@ -479,7 +479,7 @@ class BaseEvaluation(object):
             else:
                 return False, 0
 
-        if polarity and gold_tuple_pair[-1] != predict_tuple_pair[-1]:
+        if polarity and gold_pair_tuple[-1] != predict_pair_tuple[-1]:
             return False, 0
 
         return True, cover_elem_length / gold_elem_length if gold_elem_length != 0 else 0
@@ -552,7 +552,7 @@ class BaseEvaluation(object):
         """
         elem_str = "["
 
-        cur_elem_col = ["entity_1", "entity_2", "aspect", "result"]
+        cur_elem_col = ["subject", "object", "aspect", "predicate"]
         for index, elem in enumerate(cur_elem_col):
             elem_str += "["
             for elem_index, elem_representation in enumerate(data_dict[elem]):
@@ -918,7 +918,7 @@ class ElementEvaluation(BaseEvaluation):
 
         candidate_pair_col = []
 
-        # elem_col = {"entity_1", "entity_2", "aspect", "result"}
+        # elem_col = {"subject", "object", "aspect", "predicate"}
         for index in range(len(self.predict_dict)):
             cur_candidate_pair_col = []
             cur_predict_elem_dict = self.predict_dict[index]
@@ -945,7 +945,7 @@ class ElementEvaluation(BaseEvaluation):
 
     def create_pair_representation(self, candidate_col, feature_out, bert_feature_out, feature_type=0):
         """
-        :param candidate_col: [n, tuple_pair_num, tuple_pair], tuple_pair: [(s_index, e_index)]
+        :param candidate_col: [n, pair_tuple_num, pair_tuple], pair_tuple: [(s_index, e_index)]
         :param feature_out: [n, 4, sequence_length, feature_dim]
         :param bert_feature_out: [n, sequence_length, feature_dim]
         :param feature_type: 0 表示 5维 + 768维，1 表示 5维，2 表示 768维
@@ -1018,7 +1018,7 @@ class ElementEvaluation(BaseEvaluation):
         return pair_input
 
     @staticmethod
-    def is_equal_tuple_pair(candidate_tuple_col, truth_tuple_col, null_pair):
+    def is_equal_pair_tuple(candidate_tuple_col, truth_tuple_col, null_pair):
         if truth_tuple_col == null_pair:
             return False
 
@@ -1033,8 +1033,8 @@ class ElementEvaluation(BaseEvaluation):
 
     def create_pair_label(self, candidate_col, truth_pair_label):
         """
-        :param candidate_col: shape is [n, tuple_pair_num, tuple_pair]
-        :param truth_pair_label: shape is [n, tuple_pair_num, tuple_pair]
+        :param candidate_col: shape is [n, pair_tuple_num, pair_tuple]
+        :param truth_pair_label: shape is [n, pair_tuple_num, pair_tuple]
         :return:
         """
         pair_label_col, null_pair = [], [(-1, -1)] * 5
@@ -1045,7 +1045,7 @@ class ElementEvaluation(BaseEvaluation):
                 # truth predicate pair num
                 isExist = False
                 for k in range(len(truth_pair_label[i])):
-                    if self.is_equal_tuple_pair(candidate_col[i][j], truth_pair_label[i][k], null_pair):
+                    if self.is_equal_pair_tuple(candidate_col[i][j], truth_pair_label[i][k], null_pair):
                         isExist = True
 
                 is_pair_label.append(1 if isExist else 0)
@@ -1083,15 +1083,15 @@ class PairEvaluation(BaseEvaluation):
         exact_correct_num, prop_correct_num = {"init_pair": 0.0, "pair": 0.0}, {"init_pair": 0.0, "pair": 0.0}
         binary_correct_num = {"init_pair": 0.0, "pair": 0.0}
 
-        predict_tuple_pair_col = self.get_predict_truth_tuple_pair(self.candidate_pair_col)
+        predict_pair_tuple_col = self.get_predict_truth_pair_tuple(self.candidate_pair_col)
 
-        assert len(self.gold_pair_col) == len(predict_tuple_pair_col), "data length error!"
+        assert len(self.gold_pair_col) == len(predict_pair_tuple_col), "data length error!"
 
         # calculate elem dict.
         # tuple_str = ""
         for index in range(len(self.gold_pair_col)):
             gold_sequence_pair_col = self.gold_pair_col[index]
-            predict_sequence_pair_col = predict_tuple_pair_col[index]
+            predict_sequence_pair_col = predict_pair_tuple_col[index]
 
             gold_num['pair'] += self.get_effective_pair_num(gold_sequence_pair_col)
             predict_num['pair'] += self.get_effective_pair_num(predict_sequence_pair_col)
@@ -1110,7 +1110,7 @@ class PairEvaluation(BaseEvaluation):
             assert cur_exact_num <= cur_prop_num <= cur_binary_num, "eval calculate error!"
             assert cur_fake_exact_num <= cur_fake_prop_num <= cur_fake_binary_num, "eval calculate error!"
 
-            # tuple_str += self.print_tuple_pair(
+            # tuple_str += self.print_pair_tuple(
             #     gold_sequence_pair_col, predict_sequence_pair_col, [cur_exact_num, cur_binary_num]
             # )
 
@@ -1122,7 +1122,7 @@ class PairEvaluation(BaseEvaluation):
             prop_correct_num['init_pair'] += cur_fake_prop_num
             binary_correct_num['init_pair'] += cur_fake_binary_num
 
-        # with open("./tuple_pair_output.txt", "w", encoding='utf-8') as f:
+        # with open("./pair_tuple_output.txt", "w", encoding='utf-8') as f:
         #     f.write(tuple_str)
 
         print(gold_num, predict_num)
@@ -1161,15 +1161,15 @@ class PairEvaluation(BaseEvaluation):
             self.y_hat = []
 
     @staticmethod
-    def get_effective_pair_num(tuple_pair_col):
+    def get_effective_pair_num(pair_tuple_col):
         """
-        :param tuple_pair_col:
+        :param pair_tuple_col:
         :return:
         """
-        elem_length = len(tuple_pair_col[0]) if len(tuple_pair_col) != 0 else 5
+        elem_length = len(pair_tuple_col[0]) if len(pair_tuple_col) != 0 else 5
         null_pair, pair_num = [(-1, -1)] * elem_length, 0
-        for index in range(len(tuple_pair_col)):
-            if tuple_pair_col[index] == null_pair:
+        for index in range(len(pair_tuple_col)):
+            if pair_tuple_col[index] == null_pair:
                 continue
             pair_num += 1
         return pair_num
@@ -1209,74 +1209,74 @@ class PairEvaluation(BaseEvaluation):
 
         return measure
 
-    def get_predict_truth_tuple_pair(self, candidate_tuple_pair_col):
+    def get_predict_truth_pair_tuple(self, candidate_pair_tuple_col):
         """
-        :param candidate_tuple_pair_col:
+        :param candidate_pair_tuple_col:
         :return:
         """
-        truth_tuple_pair_col = []
+        truth_pair_tuple_col = []
 
         # with polarity and is_pair.
         if len(self.y_hat) != 0 and len(self.polarity_hat) != 0:
 
-            for index in range(len(candidate_tuple_pair_col)):
-                cur_predicate_tuple_pair = []
+            for index in range(len(candidate_pair_tuple_col)):
+                cur_predicate_pair_tuple = []
 
                 # drop none-pair and add polarity to pair.
                 for k in range(len(self.y_hat[index])):
                     if self.y_hat[index][k] == 1:
-                        cur_predicate_tuple_pair.append(
-                            self.add_polarity_to_tuple_pair(candidate_tuple_pair_col[index][k], self.polarity_hat[index][k])
+                        cur_predicate_pair_tuple.append(
+                            self.add_polarity_to_pair_tuple(candidate_pair_tuple_col[index][k], self.polarity_hat[index][k])
                         )
 
-                truth_tuple_pair_col.append(cur_predicate_tuple_pair)
+                truth_pair_tuple_col.append(cur_predicate_pair_tuple)
 
         elif len(self.polarity_hat) != 0:
-            for index in range(len(candidate_tuple_pair_col)):
-                cur_predicate_tuple_pair = []
+            for index in range(len(candidate_pair_tuple_col)):
+                cur_predicate_pair_tuple = []
 
                 # drop none-pair and add polarity to pair.
                 for k in range(len(self.polarity_hat[index])):
-                    cur_predicate_tuple_pair.append(
-                        self.add_polarity_to_tuple_pair(candidate_tuple_pair_col[index][k], self.polarity_hat[index][k])
+                    cur_predicate_pair_tuple.append(
+                        self.add_polarity_to_pair_tuple(candidate_pair_tuple_col[index][k], self.polarity_hat[index][k])
                     )
 
-                truth_tuple_pair_col.append(cur_predicate_tuple_pair)
+                truth_pair_tuple_col.append(cur_predicate_pair_tuple)
 
         elif len(self.y_hat) != 0:
-            for index in range(len(candidate_tuple_pair_col)):
-                cur_predicate_tuple_pair = []
+            for index in range(len(candidate_pair_tuple_col)):
+                cur_predicate_pair_tuple = []
 
                 # drop none-pair and add polarity to pair.
                 for k in range(len(self.y_hat[index])):
                     if self.y_hat[index][k] == 1:
-                        cur_predicate_tuple_pair.append(copy.deepcopy(candidate_tuple_pair_col[index][k]))
+                        cur_predicate_pair_tuple.append(copy.deepcopy(candidate_pair_tuple_col[index][k]))
 
-                truth_tuple_pair_col.append(cur_predicate_tuple_pair)
+                truth_pair_tuple_col.append(cur_predicate_pair_tuple)
 
         assert len(self.y_hat) != 0 or len(self.polarity_hat) != 0, "[ERROR] Data Process Error!"
 
-        return truth_tuple_pair_col
+        return truth_pair_tuple_col
 
     @staticmethod
-    def add_polarity_to_tuple_pair(tuple_pair, polarity):
-        return copy.deepcopy(tuple_pair + [(int(polarity - 1), int(polarity - 1))])
+    def add_polarity_to_pair_tuple(pair_tuple, polarity):
+        return copy.deepcopy(pair_tuple + [(int(polarity - 1), int(polarity - 1))])
 
-    def print_tuple_pair(self, gold_tuple_pair, predict_tuple_pair, correct_num):
+    def print_pair_tuple(self, gold_pair_tuple, predict_pair_tuple, correct_num):
         """
-        :param gold_tuple_pair:
-        :param predict_tuple_pair:
+        :param gold_pair_tuple:
+        :param predict_pair_tuple:
         :param correct_num:
         :return:
         """
         write_str = ""
-        for index in range(len(gold_tuple_pair)):
-            write_str += self.tuple_pair_to_string(gold_tuple_pair[index])
+        for index in range(len(gold_pair_tuple)):
+            write_str += self.pair_tuple_to_string(gold_pair_tuple[index])
 
         write_str += "----------------------------------\n"
 
-        for index in range(len(predict_tuple_pair)):
-            write_str += self.tuple_pair_to_string(predict_tuple_pair[index])
+        for index in range(len(predict_pair_tuple)):
+            write_str += self.pair_tuple_to_string(predict_pair_tuple[index])
 
         for index in range(len(correct_num)):
             write_str += str(correct_num[index])
@@ -1287,16 +1287,16 @@ class PairEvaluation(BaseEvaluation):
                 write_str += "\n"
 
     @staticmethod
-    def tuple_pair_to_string(tuple_pair):
+    def pair_tuple_to_string(pair_tuple):
         """
-        :param tuple_pair:
+        :param pair_tuple:
         :return:
         """
         write_str = "["
-        for index in range(len(tuple_pair)):
-            write_str += "(" + str(tuple_pair[index][0]) + ", " + str(tuple_pair[index][1]) + ")"
+        for index in range(len(pair_tuple)):
+            write_str += "(" + str(pair_tuple[index][0]) + ", " + str(pair_tuple[index][1]) + ")"
 
-            if index != len(tuple_pair) - 1:
+            if index != len(pair_tuple) - 1:
                 write_str += " , "
             else:
                 write_str += "]\n"

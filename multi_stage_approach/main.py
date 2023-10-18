@@ -106,6 +106,7 @@ def main():
     )
 
     print(model_name)
+    print(config.data_type)
 
     if config.data_type == "eng":
         data_gene = kesserl14_utils.DataGenerator(config)
@@ -220,7 +221,7 @@ def main():
             test_candidate_pair_col, test_pair_representation, test_make_pair_label, _, _ = \
                 train_test_utils.first_stage_model_test(
                     elem_model, config, test_loader, generate_second_res_eval,
-                    eval_parameters=[data_gene.test_data_dict['tuple_pair_col']],
+                    eval_parameters=[data_gene.test_data_dict['pair_tuple_col']],
                     test_type="gene", feature_type=feature_type
                 )
 
@@ -243,7 +244,7 @@ def main():
 
         test_pair_eval = PairEvaluation(
             config,
-            gold_pair_col=data_gene.test_data_dict['tuple_pair_col'],
+            gold_pair_col=data_gene.test_data_dict['pair_tuple_col'],
             candidate_pair_col=test_candidate_pair_col,
             elem_col=config.val.elem_col,
             ids_to_tags=config.val.norm_id_map,
@@ -305,7 +306,7 @@ def main():
             _, train_pair_representation, train_make_pair_label, train_feature_out, train_bert_feature_out = \
                 train_test_utils.first_stage_model_test(
                     elem_model, config, train_loader, generate_second_res_eval,
-                    eval_parameters=[data_gene.train_data_dict['tuple_pair_col']],
+                    eval_parameters=[data_gene.train_data_dict['pair_tuple_col']],
                     test_type="gene", feature_type=feature_type
                 )
 
@@ -314,7 +315,7 @@ def main():
             )
 
             train_polarity_representation, train_polarity_label = cpc.create_polarity_train_data(
-                config, data_gene.train_data_dict['tuple_pair_col'], train_feature_out,
+                config, data_gene.train_data_dict['pair_tuple_col'], train_feature_out,
                 train_bert_feature_out, feature_type=feature_type
             )
 
@@ -332,7 +333,7 @@ def main():
             dev_candidate_pair_col, dev_pair_representation, dev_make_pair_label, _, _ = \
                 train_test_utils.first_stage_model_test(
                     elem_model, config, dev_loader, generate_second_res_eval,
-                    eval_parameters=[data_gene.dev_data_dict['tuple_pair_col']],
+                    eval_parameters=[data_gene.dev_data_dict['pair_tuple_col']],
                     test_type="gene", feature_type=feature_type
                 )
 
@@ -349,7 +350,7 @@ def main():
             test_candidate_pair_col, test_pair_representation, test_make_pair_label, _, _ = \
                 train_test_utils.first_stage_model_test(
                     elem_model, config, test_loader, generate_second_res_eval,
-                    eval_parameters=[data_gene.test_data_dict['tuple_pair_col']],
+                    eval_parameters=[data_gene.test_data_dict['pair_tuple_col']],
                     test_type="gene", feature_type=feature_type
                 )
 
@@ -363,7 +364,7 @@ def main():
 
         dev_pair_eval = PairEvaluation(
             config,
-            gold_pair_col=data_gene.dev_data_dict['tuple_pair_col'],
+            gold_pair_col=data_gene.dev_data_dict['pair_tuple_col'],
             candidate_pair_col=dev_candidate_pair_col,
             elem_col=config.val.elem_col,
             ids_to_tags=config.val.norm_id_map,
@@ -372,7 +373,7 @@ def main():
 
         test_pair_eval = PairEvaluation(
             config,
-            gold_pair_col=data_gene.test_data_dict['tuple_pair_col'],
+            gold_pair_col=data_gene.test_data_dict['pair_tuple_col'],
             candidate_pair_col=test_candidate_pair_col,
             elem_col=config.val.elem_col,
             ids_to_tags=config.val.norm_id_map,

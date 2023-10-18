@@ -22,7 +22,7 @@ class DataGenerator(object):
         self.train_data_dict, self.dev_data_dict, self.test_data_dict = {}, {}, {}
         self.bert_tokenizer = BertTokenizer.from_pretrained(config.path.bert_model_path)
 
-        self.elem_col = ["entity_1", "entity_2", "aspect", "result"]
+        self.elem_col = ["subject", "object", "aspect", "predicate"]
 
     def create_data_dict(self, data_path, data_type, label_path=None):
         """
@@ -33,10 +33,11 @@ class DataGenerator(object):
         """
         data_dict = {}
 
-        sent_col, sent_label_col, label_col = cpc.read_standard_file(data_path)
+        sent_col, verdict_col, labels_col = cpc.read_standard_file(data_path)
+        # print(labels_col)
 
-        LP = LabelParser(label_col, ["entity_1", "entity_2", "aspect", "result"])
-        label_col, tuple_pair_col = LP.parse_sequence_label("&&", sent_col, file_type="eng")
+        LP = LabelParser(labels_col, ["subject", "object", "aspect", "predicate"])
+        elem_col, pair_tuple_col = LP.parse_sequence_label("&&", sent_col, file_type="eng")
 
         # using stanford tool to get some feature data.
         if not os.path.exists(self.config.path.pre_process_data[data_type]):
@@ -49,17 +50,23 @@ class DataGenerator(object):
 
         self.token_max_len = max(self.token_max_len, shared_utils.get_max_token_length(data_dict['standard_token']))
 
-        data_dict['label_col'] = label_col
-        data_dict['comparative_label'] = sent_label_col
+        data_dict['label_col'] = labels_col
+        data_dict['comparative_label'] = verdict_col
 
         if self.config.model_mode == "bert":
             data_dict['bert_token'] = shared_utils.get_token_col(sent_col, bert_tokenizer=self.bert_tokenizer, dim=1)
 
+            print("bert length: ", len(data_dict['bert_token']))
+            print("standard length: ", len(data_dict['standard_token']))
+
+            print("bert_token: ", data_dict['bert_token'][:5])
+            print("standard_token: ", data_dict['standard_token'][:5])
+
             mapping_col = shared_utils.token_mapping_bert(data_dict['bert_token'], data_dict['standard_token'])
 
-            label_col = cpc.convert_eng_label_dict_by_mapping(label_col, mapping_col)
+            labels_col = cpc.convert_eng_label_dict_by_mapping(labels_col, mapping_col)
 
-            tuple_pair_col = cpc.convert_eng_tuple_pair_by_mapping(tuple_pair_col, mapping_col)
+            pair_tuple_col = cpc.convert_eng_pair_tuple_by_mapping(pair_tuple_col, mapping_col)
 
             data_dict['input_ids'] = shared_utils.bert_data_transfer(
                 self.bert_tokenizer,
@@ -82,8 +89,8 @@ class DataGenerator(object):
 
             self.char_max_len = max(self.char_max_len, shared_utils.get_max_token_length(data_dict['input_ids'])) + 2
 
-        data_dict['tuple_pair_col'] = tuple_pair_col
-        print("convert pair number: ", cpc.get_tuple_pair_num(data_dict['tuple_pair_col']))
+        data_dict['pair_tuple_col'] = pair_tuple_col
+        print("convert pair number: ", cpc.get_pair_tuple_num(data_dict['pair_tuple_col']))
 
         token_col = data_dict['standard_token'] if self.config.model_mode == "norm" else data_dict['bert_token']
 
@@ -95,7 +102,7 @@ class DataGenerator(object):
         # result_label: [N, sequence_length] polarity-col: [N, pair_num]
         data_dict['multi_label'], data_dict['result_label'], data_dict['polarity_label'] = \
             cpc.elem_dict_convert_to_multi_sequence_label(
-                token_col, label_col, special_symbol=special_symbol
+                token_col, labels_col, special_symbol=special_symbol
             )
 
         ################################################################################################################
@@ -117,6 +124,7 @@ class DataGenerator(object):
         return data_dict
 
     def generate_data(self):
+        print("kesserl14_utils_utils.py: generate_data\n\n\n")
         self.train_data_dict = self.create_data_dict(
             self.config.path.standard_path['train'],
             "train"
@@ -171,7 +179,7 @@ class DataGenerator(object):
         :param data_dict:
         :return:
         """
-        key_col = ["input_ids", "attn_mask", "tuple_pair_col", "result_label", "multi_label", "comparative_label"]
+        key_col = ["input_ids", "attn_mask", "pair_tuple_col", "result_label", "multi_label", "comparative_label"]
 
         for key in key_col:
             data_dict[key] = np.array(data_dict[key])
