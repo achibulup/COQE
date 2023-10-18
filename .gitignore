@@ -1,3 +1,6 @@
-deps/stanford/tmp
+deps/*
+!deps/README.md
+!deps/*.placeholder
+!deps/stanford/stanford-corenlp-4.5.5-models.jar.placeholder
 data/pre_process/*
 **/__pycache__/*
