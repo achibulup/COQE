@@ -1,6 +1,6 @@
 import copy
 from stanfordcorenlp import StanfordCoreNLP
-
+import logging
 
 class stanfordFeature(object):
     def __init__(self, sentences, stanford_path, lang="en"):
@@ -10,7 +10,7 @@ class stanfordFeature(object):
         :param lang: denote which language sentences need to process
         """
         self.sentences_col = sentences
-        self.nlp = StanfordCoreNLP(stanford_path, lang=lang)
+        self.nlp = StanfordCoreNLP(stanford_path, lang=lang, logging_level=logging.WARNING, quiet=True)
 
         # using set to store label type
         self.pos_dict, self.pos_index = {"PAD": 0}, 1
@@ -24,9 +24,12 @@ class stanfordFeature(object):
         """
         :return: a list of token by stanford tokenizer
         """
+        # print("get_tokenizer")
         input_tokens = []
         for i in range(len(self.sentences_col)):
             token_list = self.nlp.word_tokenize(self.sentences_col[i])
+            # print("sentence: ", self.sentences_col[i])
+            # print("token_list: ", token_list)
             input_tokens.append(token_list)
 
         return input_tokens
