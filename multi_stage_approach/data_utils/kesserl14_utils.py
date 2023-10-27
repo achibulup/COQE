@@ -59,9 +59,6 @@ class DataGenerator(object):
             print("bert length: ", len(data_dict['bert_token']))
             print("standard length: ", len(data_dict['standard_token']))
 
-            print("bert_token: ", data_dict['bert_token'][:5])
-            print("standard_token: ", data_dict['standard_token'][:5])
-
             mapping_col = shared_utils.token_mapping_bert(data_dict['bert_token'], data_dict['standard_token'])
 
             labels_col = cpc.convert_eng_label_dict_by_mapping(labels_col, mapping_col)

@@ -46,8 +46,8 @@ def set_config_parameters(args, parameters_dict):
     :return:
     """
     for param, value in parameters_dict.items():
-        if param == "file_type":
-            args.file_type = value
+        if param == "dataset":
+            args.dataset = value
 
         elif param == "model_mode":
             args.model_mode = value
@@ -461,8 +461,12 @@ def token_mapping_bert(bert_token_col, gold_token_col):
         seq_map, bert_index, token_index = {}, 1, 0
         seq_bert_token, seq_gold_token = bert_token_col[index], gold_token_col[index]
 
+        print("bert_token: ", seq_bert_token)
+        print("standard_token: ", seq_gold_token)
+
         while bert_index < len(seq_bert_token) and token_index < len(seq_gold_token):
             seq_map[token_index] = [bert_index]
+            print(seq_gold_token[token_index], seq_bert_token[bert_index])
 
             # [UNK] denote special symbol
             if seq_bert_token[bert_index] == "[UNK]":
@@ -484,7 +488,7 @@ def token_mapping_bert(bert_token_col, gold_token_col):
             while token_length > bert_length:
                 bert_index = bert_index + 1
                 seq_map[token_index].append(bert_index)
-                # print(seq_bert_token[bert_index])
+                print(seq_bert_token[bert_index])
                 bert_length += len(seq_bert_token[bert_index])
 
                 if seq_bert_token[bert_index].find("##") != -1:

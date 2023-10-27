@@ -14,7 +14,7 @@ class LabelParser(object):
         self.intermittent = intermittent
         self.elem_index = {"subject": 0, "object": 1, "aspect": 2, "predicate": 3, "label": 4}
 
-    def parse_sequence_label(self, split_symbol="&", sent_col=None, file_type="cn"):
+    def parse_sequence_label(self, split_symbol="&", sent_col=None, file_type="eng"):
         """
         :param split_symbol:
         :param sent_col:

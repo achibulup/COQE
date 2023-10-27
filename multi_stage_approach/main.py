@@ -51,7 +51,7 @@ def TerminalParser():
     parser.add_argument('--device', help='run program in device type',
                         default='cuda' if torch.cuda.is_available() else 'cpu')
 
-    parser.add_argument('--file_type', help='the type of data set', default='car')
+    parser.add_argument('--dataset', help='the type of data set', default='car')
     parser.add_argument('--premodel_path', help='the type of data set', default=None)
 
     # model parameters.
@@ -73,7 +73,7 @@ def get_necessary_parameters(args):
     :param args:
     :return:
     """
-    param_dict = {"file_type": args.file_type,
+    param_dict = {"dataset": args.dataset,
                   "model_mode": args.model_mode,
                   "stage_model": args.stage_model,
                   "model_type": args.model_type,
@@ -108,10 +108,10 @@ def main():
     print(model_name)
     print(config.data_type)
 
-    if config.data_type == "eng":
+    if True: # config.data_type == "eng":
         data_gene = kesserl14_utils.DataGenerator(config)
-    else:
-        data_gene = coae13_utils.DataGenerator(config)
+    # else:
+    #     data_gene = coae13_utils.DataGenerator(config)
 
     data_gene.generate_data()
 
