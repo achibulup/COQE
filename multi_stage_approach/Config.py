@@ -18,17 +18,17 @@ class BaseConfig(object):
         # common model mode setting
         self.model_mode = args.model_mode
         self.model_type = args.model_type
-        self.file_type = args.file_type
+        self.dataset = args.dataset
         self.stage_model = args.stage_model
         self.program_mode = args.program_mode
         self.position_sys = args.position_sys
 
         self.premodel_path = args.premodel_path if args.premodel_path is not None else ""
 
-        self.data_type = "eng" if args.file_type == "Camera-COQE" else "cn"
+        self.data_type = "eng" # if args.dataset == "Camera-COQE" else "cn"
 
         self.path = PathConfig(
-            self.device, self.file_type, self.program_mode, self.premodel_path
+            self.device, self.dataset, self.program_mode, self.premodel_path
         )
         self.val = GlobalConfig(self.position_sys)
         print('self.path.bert_model_path', self.path.bert_model_path)
@@ -36,35 +36,35 @@ class BaseConfig(object):
 
 
 class PathConfig(object):
-    def __init__(self, device, file_type, program_mode, premodel_path):
+    def __init__(self, device, dataset, program_mode, premodel_path):
         # store split train and test data file path
-        dir_name = file_type
-        dir_name = dir_name if program_mode in {"run", "test"} else "test_" + dir_name
+        dir_name = dataset
+        # dir_name = dir_name if program_mode in {"run", "test"} else "test_" + dir_name
 
         self.standard_path = {
-            "train": "../data/{}/train.txt".format(dir_name),
-            "dev": "../data/{}/dev.txt".format(dir_name),
-            "test": "../data/{}/test.txt".format(dir_name)
+            "train": "../data/{}/train".format(dir_name),
+            "dev": "../data/{}/dev".format(dir_name),
+            "test": "../data/{}/test".format(dir_name)
         }
 
         # nlp tool file path
         if device == "cpu":
             # self.stanford_path = r"D:/stanford-corenlp-full-2018-10-05"
-            # self.bert_model_path = r"D:/base_uncased/" if file_type == "Camera-COQE" else r"D:/base_chinese/"
+            # self.bert_model_path = r"D:/base_uncased/" if dataset == "Camera-COQE" else r"D:/base_chinese/"
             self.stanford_path = "../deps/stanford/"#premodel_path + "stanford-corenlp-full-2018-02-27"
-            self.bert_model_path = "bert-base-uncased"#premodel_path + "base_uncased/" if file_type == "Camera-COQE" else premodel_path + "base_chinese/"
+            self.bert_model_path = "bert-base-uncased"#premodel_path + "base_uncased/" if dataset == "Camera-COQE" else premodel_path + "base_chinese/"
             self.GloVe_path = "."#premodel_path + "vector/glove.840B.300d.txt"
             self.Word2Vec_path = "../deps/lexvec.commoncrawl.300d.W.pos.vectors"#premodel_path + "vector/word2vec.txt"
         else:
             self.stanford_path = "../deps/stanford/"#premodel_path + "stanford-corenlp-full-2018-02-27"
-            self.bert_model_path = "bert-base-uncased"#premodel_path + "base_uncased/" if file_type == "Camera-COQE" else premodel_path + "base_chinese/"
+            self.bert_model_path = "bert-base-uncased"#premodel_path + "base_uncased/" if dataset == "Camera-COQE" else premodel_path + "base_chinese/"
             self.GloVe_path = "."#premodel_path + "vector/glove.840B.300d.txt"
             self.Word2Vec_path = "../deps/lexvec.commoncrawl.300d.W.pos.vectors"#premodel_path + "vector/word2vec.txt"
 
         self.pre_process_data = {
-            "train": "../data/pre_process/{}_train_data.txt".format(file_type),
-            "dev": "../data/pre_process/{}_dev_data.txt".format(file_type),
-            "test": "../data/pre_process/{}_test_data.txt".format(file_type)
+            "train": "../data/pre_process/{}_train_data.txt".format(dataset),
+            "dev": "../data/pre_process/{}_dev_data.txt".format(dataset),
+            "test": "../data/pre_process/{}_test_data.txt".format(dataset)
         }
 
 
