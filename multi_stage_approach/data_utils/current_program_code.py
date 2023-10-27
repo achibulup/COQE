@@ -1,3 +1,4 @@
+import glob
 from data_utils import shared_utils
 import numpy as np
 import copy
@@ -12,32 +13,33 @@ def read_standard_file(path):
     """
     sent_col, verdict_col, labels_col = [], [], []
     last_sentence = ""
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f.readlines():
-            line = line.rstrip('\n')
+    for file in glob.glob(path + "/*.txt"):
+        with open(file, "r", encoding="utf-8") as f:
+            for line in f.readlines():
+                line = line.rstrip('\n')
 
-            # "[[" denote the begin of sequence label.
-            if line[:1] == "{":
-                labels.append(line)
+                # "[[" denote the begin of sequence label.
+                if line[:1] == "{":
+                    labels.append(line)
 
-            else:
-                if last_sentence != "":
-                    sent_col.append(last_sentence)
-                    verdict_col.append(1 if len(labels) > 0 else 0)
-                    if (len(labels) == 0):
-                        labels.append('{"subject":[],"object":[],"aspect":[],"predicate":[],"label":""}')
-                    labels_col.append(labels)
+                else:
+                    if last_sentence != "":
+                        sent_col.append(last_sentence)
+                        verdict_col.append(1 if len(labels) > 0 else 0)
+                        if (len(labels) == 0):
+                            labels.append('{"subject":[],"object":[],"aspect":[],"predicate":[],"label":""}')
+                        labels_col.append(labels)
 
-                last_sentence = shared_utils.clear_string(line, replace_symbol={u'\u3000': u""})
-                labels = []
+                    last_sentence = shared_utils.clear_string(line, replace_symbol={u'\u3000': u""})
+                    labels = []
 
-        sent_col.append(last_sentence)
-        verdict_col.append(1 if len(labels) > 0 else 0)
-        if (len(labels) == 0):
-            labels.append('{"subject":[],"object":[],"aspect":[],"predicate":[],"label":""}')
-        labels_col.append(labels)
+            sent_col.append(last_sentence)
+            verdict_col.append(1 if len(labels) > 0 else 0)
+            if (len(labels) == 0):
+                labels.append('{"subject":[],"object":[],"aspect":[],"predicate":[],"label":""}')
+            labels_col.append(labels)
 
-        return sent_col, verdict_col, labels_col
+    return sent_col, verdict_col, labels_col
 
 
 ########################################################################################################################
