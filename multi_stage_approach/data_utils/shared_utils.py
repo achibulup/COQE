@@ -17,7 +17,7 @@ from gensim.scripts.glove2word2vec import glove2word2vec
 # using elem_col and position_sys to get {tag: id}
 def create_tag_mapping_ids(elem_col, position_sys, other_flag=True):
     """
-    :param elem_col: like: ["entity_1", "entity_2", "aspect", "scale", "predicate"]
+    :param elem_col: like: ["subject", "object", "aspect", "scale", "predicate"]
     :param position_sys: like ["B", "M", "E", "S"], ["B", "I"], ["B", "I", "E", "S"]
     :param other_flag: true denote {"O": 0}, false denote {}
     :return:
@@ -108,7 +108,8 @@ def parameters_to_model_name(param_dict):
     """
     assert "config" in param_dict, "must need config parameters."
 
-    result_file, model_file = "./ModelResult/", "./PreTrainModel/"
+    result_dir = "./ModelResult/"
+    model_dir = "./PreTrainModel/"
 
     config_param = param_dict['config']
     model_param = param_dict['model'] if "model" in param_dict else None
@@ -120,13 +121,12 @@ def parameters_to_model_name(param_dict):
         model_name += str(value) if isinstance(value, int) else value
         model_name += "_" if index != len(config_param.keys()) - 1 else ""
 
-    model_name = model_name.replace("second", "first")
-    model_name = model_name.replace("test", "run")
+    model_name = model_name.replace("second", "first").replace("test", "run")
 
-    if not os.path.exists(os.path.join(result_file, model_name)):
-        os.mkdir(os.path.join(result_file, model_name))
-    if not os.path.exists(os.path.join(model_file, model_name)):
-        os.mkdir(os.path.join(model_file, model_name))
+    if not os.path.exists(os.path.join(result_dir, model_name)):
+        os.mkdir(os.path.join(result_dir, model_name))
+    if not os.path.exists(os.path.join(model_dir, model_name)):
+        os.mkdir(os.path.join(model_dir, model_name))
 
     model_name += "/"
     if model_param is not None:
@@ -142,12 +142,13 @@ def parameters_to_model_name(param_dict):
 
         model_name += "_".join(model_param_col)
 
-    result_file, model_file = os.path.join(result_file, model_name), os.path.join(model_file, model_name)
+    result_dir = os.path.join(result_dir, model_name) 
+    model_dir = os.path.join(model_dir, model_name)
 
-    if not os.path.exists(result_file):
-        os.mkdir(result_file)
-    if not os.path.exists(model_file):
-        os.mkdir(model_file)
+    if not os.path.exists(result_dir):
+        os.mkdir(result_dir)
+    if not os.path.exists(model_dir):
+        os.mkdir(model_dir)
     #
     # if optimizer_param is not None:
     #     model_name += "_"
@@ -473,6 +474,9 @@ def token_mapping_bert(bert_token_col, gold_token_col):
             token_length = len(seq_gold_token[token_index])
             bert_length = len(seq_bert_token[bert_index])
 
+            # print(seq_gold_token[token_index],len(seq_gold_token[token_index]))
+            # print(seq_bert_token[bert_index])
+
             # drop "##" prefix
             if seq_bert_token[bert_index].find("##") != -1:
                 bert_length = len(seq_bert_token[bert_index]) - 2
@@ -480,11 +484,13 @@ def token_mapping_bert(bert_token_col, gold_token_col):
             while token_length > bert_length:
                 bert_index = bert_index + 1
                 seq_map[token_index].append(bert_index)
+                # print(seq_bert_token[bert_index])
                 bert_length += len(seq_bert_token[bert_index])
 
                 if seq_bert_token[bert_index].find("##") != -1:
                     bert_length -= 2
 
+            # print("{} vs {}".format(bert_length, token_length))
             assert bert_length == token_length, "appear mapping error!"
             # check_utils.check_mapping_process(seq_map, seq_gold_token, seq_bert_token)
 
@@ -622,7 +628,7 @@ def elem_dict_convert_to_pair_col(elem_dict):
     :param elem_dict: {elem: [(s_index, e_index)]}
     :return:
     """
-    key_col = ["entity_1", "entity_2", "aspect", "scale"]
+    key_col = ["subject", "object", "aspect", "scale"]
     final_pair_col = []
 
     for elem in key_col:
@@ -762,10 +768,10 @@ def elem_dict_convert_to_sequence_label(token_col, label_col, label_type="predic
 
         return sequence_label
 
-    def create_sequence_label(sequence_token, pair_label_col, elem_col):
+    def create_sequence_label(sequence_token, pair_label_col, elems):
         each_pair_col, sequence_label = [], ["O"] * len(sequence_token)
         for pair_index in range(len(pair_label_col)):
-            for elem in elem_col:
+            for elem in elems:
                 sequence_label = elem_dict_to_sequence_label(sequence_label, pair_label_col[pair_index][elem], elem)
 
             if label_type == "elem":
@@ -780,8 +786,8 @@ def elem_dict_convert_to_sequence_label(token_col, label_col, label_type="predic
             sequence_label_col.append(create_sequence_label(token_col[index], label_col[index], ["predicate"]))
 
         elif label_type == "elem":
-            elem_col = ["entity_1", "entity_2", "aspect", "scale"]
-            sequence_label_col.append(create_sequence_label(token_col[index], label_col[index], elem_col))
+            elems = ["subject", "object", "aspect", "scale"]
+            sequence_label_col.append(create_sequence_label(token_col[index], label_col[index], elems))
 
     return sequence_label_col
 
@@ -793,7 +799,7 @@ def elem_dict_convert_to_multi_sequence_label(token_col, label_col):
     :return:
     """
     elem_pair_col, polarity_col = [], []
-    elem_col = ["entity_1", "entity_2", "aspect", "result"]
+    elem_col = ["subject", "object", "aspect", "predicate"]
 
     for index in range(len(token_col)):
         sent_multi_col = []
@@ -870,7 +876,7 @@ def convert_label_dict_by_mapping(label_col, mapping_col):
     :param mapping_col: [n, index_dict], index_dict: {bert_index: [char_index]} or {token_index: [bert_index]}.
     :return: new type label col.
     """
-    elem_col = ["entity_1", "entity_2", "aspect", "scale", "predicate"]
+    elem_col = ["subject", "object", "aspect", "scale", "predicate"]
     assert len(label_col) == len(mapping_col), "mapping_col length equal to label length."
     final_label_col = copy.deepcopy(label_col)
 
@@ -896,10 +902,10 @@ def convert_label_dict_by_mapping(label_col, mapping_col):
 
 
 # chinese version need combine the same predicates.
-def combine_predicate_label_col(label_col, gold_tuple_pair_col):
+def combine_predicate_label_col(label_col, gold_pair_tuple_col):
     """
     :param label_col: [n, predicate_num, elem_dict]
-    :param gold_tuple_pair_col: [n, predicate_num, pair_num, tuple_pair]
+    :param gold_pair_tuple_col: [n, predicate_num, pair_num, pair_tuple]
     :return:
     """
     def combine_elem_dict(source_elem_dict, add_elem_dict):
@@ -908,11 +914,11 @@ def combine_predicate_label_col(label_col, gold_tuple_pair_col):
             for add_s_index, add_length in add_elem_dict['label'][elem].items():
                 if add_s_index not in source_elem_dict['label'][elem]:
                     final_elem_dict['label'][elem][add_s_index] = add_length
-        final_elem_dict['tuple_pair'].extend(add_elem_dict['tuple_pair'])
+        final_elem_dict['pair_tuple'].extend(add_elem_dict['pair_tuple'])
 
         return final_elem_dict
 
-    final_label_col, final_tuple_pair_col = [], []
+    final_label_col, final_pair_tuple_col = [], []
 
     for index in range(len(label_col)):
 
@@ -924,29 +930,29 @@ def combine_predicate_label_col(label_col, gold_tuple_pair_col):
 
                 if (s_index, e_index) not in each_sent_predicate_dict:
                     each_sent_predicate_dict[(s_index, e_index)] = \
-                        {"label": label_col[index][pair_index], "tuple_pair": gold_tuple_pair_col[index][pair_index]}
+                        {"label": label_col[index][pair_index], "pair_tuple": gold_pair_tuple_col[index][pair_index]}
 
                 else:
                     each_sent_predicate_dict[(s_index, e_index)] = combine_elem_dict(
                         each_sent_predicate_dict[(s_index, e_index)],
-                        {"label": label_col[index][pair_index], "tuple_pair": gold_tuple_pair_col[index][pair_index]}
+                        {"label": label_col[index][pair_index], "pair_tuple": gold_pair_tuple_col[index][pair_index]}
                     )
 
                 # four tuple only calculate once.
                 break
 
-        cur_pair_elem_dict_col, cur_tuple_pair_col = [], []
+        cur_pair_elem_dict_col, cur_pair_tuple_col = [], []
         for predicate_index, elem_dict in each_sent_predicate_dict.items():
             cur_pair_elem_dict_col.append(elem_dict['label'])
-            cur_tuple_pair_col.append(elem_dict['tuple_pair'])
+            cur_pair_tuple_col.append(elem_dict['pair_tuple'])
 
         if len(cur_pair_elem_dict_col) == 0:
-            cur_pair_elem_dict_col = [{"entity_1": {}, "entity_2": {}, "aspect": {}, "scale": {}, "predicate": {}}]
-            cur_tuple_pair_col = [[[(-1, -1)] * 4]]
+            cur_pair_elem_dict_col = [{"subject": {}, "object": {}, "aspect": {}, "scale": {}, "predicate": {}}]
+            cur_pair_tuple_col = [[[(-1, -1)] * 4]]
         final_label_col.append(cur_pair_elem_dict_col)
-        final_tuple_pair_col.append(cur_tuple_pair_col)
+        final_pair_tuple_col.append(cur_pair_tuple_col)
 
-    return final_label_col, final_tuple_pair_col
+    return final_label_col, final_pair_tuple_col
 
 
 def calculate_average_measure(add_eval, global_eval):
@@ -1005,7 +1011,7 @@ def get_init_pair_num(label_col):
     :param label_col: [n, pair_num, elem_dict], elem_dict: {elem: {s_index: length}}
     :return:
     """
-    elem_col = ["entity_1", "entity_2", "aspect", "scale"]
+    elem_col = ["subject", "object", "aspect", "scale"]
 
     init_pair_num = 0
     for index in range(len(label_col)):
@@ -1026,16 +1032,16 @@ def get_init_pair_num(label_col):
     return init_pair_num
 
 
-def get_tuple_pair_num(gold_tuple_pair):
+def get_pair_tuple_num(gold_pair_tuple):
     """
-    :param gold_tuple_pair: [n, predicate_num, pair_num, tuple]
+    :param gold_pair_tuple: [n, predicate_num, pair_num, tuple]
     :return:
     """
     pair_num = 0
-    for index in range(len(gold_tuple_pair)):
-        for predicate_index in range(len(gold_tuple_pair[index])):
-            if gold_tuple_pair[index][predicate_index] != [[(-1, -1)] * 4]:
-                pair_num += len(gold_tuple_pair[index][predicate_index])
+    for index in range(len(gold_pair_tuple)):
+        for predicate_index in range(len(gold_pair_tuple[index])):
+            if gold_pair_tuple[index][predicate_index] != [[(-1, -1)] * 4]:
+                pair_num += len(gold_pair_tuple[index][predicate_index])
 
     return pair_num
 

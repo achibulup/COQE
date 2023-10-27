@@ -1,5 +1,5 @@
 from data_utils import shared_utils
-from transformers import BertTokenizer
+from transformers import BertTokenizer, AutoTokenizer
 
 
 class BaseConfig(object):
@@ -23,16 +23,17 @@ class BaseConfig(object):
         self.program_mode = args.program_mode
         self.position_sys = args.position_sys
 
-        self.premodel_path = args.premodel_path
+        self.premodel_path = args.premodel_path if args.premodel_path is not None else ""
 
-        self.data_type = "eng" if args.file_type == "Camera-COQE" else "cn"
+        self.data_type = "vie" if args.file_type == "Camera-COQE" else "cn"
 
         self.path = PathConfig(
             self.device, self.file_type, self.program_mode, self.premodel_path
         )
         self.val = GlobalConfig(self.position_sys)
         print('self.path.bert_model_path', self.path.bert_model_path)
-        self.bert_tokenizer = BertTokenizer.from_pretrained(self.path.bert_model_path)
+        # self.bert_tokenizer = BertTokenizer.from_pretrained(self.path.bert_model_path)
+        self.bert_tokenizer = AutoTokenizer.from_pretrained(self.path.bert_model_path)
 
 
 class PathConfig(object):
@@ -47,15 +48,31 @@ class PathConfig(object):
             "test": "../data/{}/test.txt".format(dir_name)
         }
 
+        self.vn_path = {
+            "train": "../data/{}/train_0001.txt".format(dir_name)
+        }
+
+        self.annotated_path = {
+            "train": "../data/{}/annotated_0001.txt".format(dir_name)
+        }
+        
         # nlp tool file path
         if device == "cpu":
-            self.stanford_path = r"D:/stanford-corenlp-full-2018-10-05"
-            self.bert_model_path = r"D:/base_uncased/" if file_type == "Camera-COQE" else r"D:/base_chinese/"
+            # self.stanford_path = r"D:/stanford-corenlp-full-2018-10-05"
+            # self.bert_model_path = r"D:/base_uncased/" if file_type == "Camera-COQE" else r"D:/base_chinese/"
+            self.stanford_path = "../deps/stanford/"#premodel_path + "stanford-corenlp-full-2018-02-27"
+            # self.bert_model_path = "bert-base-uncased"#premodel_path + "base_uncased/" if file_type == "Camera-COQE" else premodel_path + "base_chinese/"
+            self.vncorenlp_path = "../deps/vncorenlp"
+            self.bert_model_path = "vinai/phobert-base-v2"
+            self.GloVe_path = "."#premodel_path + "vector/glove.840B.300d.txt"
+            self.Word2Vec_path = "../deps/lexvec.commoncrawl.300d.W.pos.vectors"#premodel_path + "vector/word2vec.txt"
         else:
-            self.stanford_path = premodel_path + "stanford-corenlp-full-2018-02-27"
-            self.bert_model_path = premodel_path + "base_uncased/" if file_type == "Camera-COQE" else premodel_path + "base_chinese/"
-            self.GloVe_path = premodel_path + "vector/glove.840B.300d.txt"
-            self.Word2Vec_path = premodel_path + "vector/word2vec.txt"
+            self.vncorenlp_path = "../deps/vncorenlp"
+            self.stanford_path = "../deps/stanford/"#premodel_path + "stanford-corenlp-full-2018-02-27"
+            # self.bert_model_path = "bert-base-uncased"#premodel_path + "base_uncased/" if file_type == "Camera-COQE" else premodel_path + "base_chinese/"
+            self.bert_model_path = "vinai/phobert-base-v2"
+            self.GloVe_path = "."#premodel_path + "vector/glove.840B.300d.txt"
+            self.Word2Vec_path = "../deps/lexvec.commoncrawl.300d.W.pos.vectors"#premodel_path + "vector/word2vec.txt"
 
         self.pre_process_data = {
             "train": "../data/pre_process/{}_train_data.txt".format(file_type),
@@ -66,7 +83,7 @@ class PathConfig(object):
 
 class GlobalConfig(object):
     def __init__(self, position_sys):
-        self.elem_col = ["entity_1", "entity_2", "aspect", "result"]
+        self.elem_col = ["subject", "object", "aspect", "predicate"]
         self.polarity_col = ["Negative", "Equal", "Positive", "None"]
         self.polarity_dict = {k: index - 1 for index, k in enumerate(self.polarity_col)}
 

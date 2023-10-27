@@ -5,6 +5,7 @@ from data_utils import shared_utils, data_loader_utils
 from model_utils import pipeline_model_utils, optimizer_utils
 from data_utils import current_program_code as cpc
 from tqdm import tqdm
+import numpy
 
 
 ########################################################################################################################
@@ -28,9 +29,9 @@ def first_stage_model_train(model, optimizer, train_loader, config, epoch):
         input_ids = torch.tensor(input_ids).long().to(config.device)
         attn_mask = torch.tensor(attn_mask).long().to(config.device)
 
-        comparative_label = torch.tensor(comparative_label).long().to(config.device)
-        multi_label = torch.tensor(multi_label).long().to(config.device)
-        result_label = torch.tensor(result_label).long().to(config.device)
+        comparative_label = torch.tensor(numpy.array(comparative_label)).long().to(config.device)
+        multi_label = torch.tensor(numpy.array(multi_label)).long().to(config.device)
+        result_label = torch.tensor(numpy.array(result_label)).long().to(config.device)
 
         loss = model(input_ids, attn_mask, comparative_label, multi_label, result_label)
 

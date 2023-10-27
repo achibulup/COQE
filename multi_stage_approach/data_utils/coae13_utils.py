@@ -19,7 +19,7 @@ class DataGenerator(object):
         # store some data using in model
         self.train_data_dict, self.dev_data_dict, self.test_data_dict = {}, {}, {}
         self.bert_tokenizer = BertTokenizer.from_pretrained(config.path.bert_model_path)
-        self.elem_col = ["entity_1", "entity_2", "aspect", "result"]
+        self.elem_col = ["subject", "object", "aspect", "predicate"]
 
     def create_data_dict(self, data_path, data_type):
         """
@@ -31,8 +31,8 @@ class DataGenerator(object):
 
         sent_col, sent_label_col, label_col = cpc.read_standard_file(data_path)
 
-        LP = LabelParser(label_col, ["entity_1", "entity_2", "aspect", "result"])
-        label_col, tuple_pair_col = LP.parse_sequence_label("&", sent_col)
+        LP = LabelParser(label_col, ["subject", "object", "aspect", "predicate"])
+        label_col, pair_tuple_col = LP.parse_sequence_label("&", sent_col)
 
         data_dict['label_col'] = label_col
         data_dict['comparative_label'] = sent_label_col
@@ -63,7 +63,7 @@ class DataGenerator(object):
 
         else:
             label_col = cpc.convert_label_dict_by_mapping(label_col, mapping_col)
-            tuple_pair_col = cpc.convert_tuple_pair_by_mapping(tuple_pair_col, mapping_col)
+            pair_tuple_col = cpc.convert_pair_tuple_by_mapping(pair_tuple_col, mapping_col)
 
             data_dict['input_ids'] = shared_utils.bert_data_transfer(
                 self.bert_tokenizer,
@@ -73,9 +73,9 @@ class DataGenerator(object):
 
             self.char_max_len = max(self.char_max_len, shared_utils.get_max_token_length(data_dict['bert_token'])) + 2
 
-        data_dict['tuple_pair_col'] = tuple_pair_col
+        data_dict['pair_tuple_col'] = pair_tuple_col
 
-        print("convert pair number: ", cpc.get_tuple_pair_num(data_dict['tuple_pair_col']))
+        print("convert pair number: ", cpc.get_pair_tuple_num(data_dict['pair_tuple_col']))
         token_col = data_dict['standard_char'] if self.config.model_mode == "norm" else data_dict['bert_token']
 
         data_dict['attn_mask'] = shared_utils.get_mask(token_col, dim=1)
@@ -109,6 +109,7 @@ class DataGenerator(object):
         return data_dict
 
     def generate_data(self):
+        print("coae13_utils.py: generate_data\n\n\n")
         self.train_data_dict = self.create_data_dict(
             self.config.path.standard_path['train'],
             "train"
@@ -163,7 +164,7 @@ class DataGenerator(object):
         :param data_dict:
         :return:
         """
-        key_col = ["input_ids", "attn_mask", "tuple_pair_col", "result_label", "multi_label", "comparative_label"]
+        key_col = ["input_ids", "attn_mask", "pair_tuple_col", "result_label", "multi_label", "comparative_label"]
 
         for key in key_col:
             data_dict[key] = np.array(data_dict[key])

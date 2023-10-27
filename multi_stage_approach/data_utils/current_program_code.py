@@ -8,34 +8,27 @@ import torch
 def read_standard_file(path):
     """
     :param path:
-    :return: sent_col, sent_label_col and label_col
+    :return: sent_col, verdict_col and label_col
     """
-    sent_col, sent_label_col, final_label_col = [], [], []
+    all_sent_col, all_verdict_col, all_labels_col, labels = [], [], [], []
     last_sentence = ""
     with open(path, "r", encoding="utf-8") as f:
         for line in f.readlines():
             line = line.rstrip('\n')
 
-            # "[[" denote the begin of sequence label.
-            if line[:2] == "[[":
-                label_col.append(line)
+            # "{" denote the begin of sequence label.
+            if (line[:1] == "{"):
+                labels.append(line)
 
-            else:
-                if last_sentence != "":
-                    cur_sent, cur_sent_label = shared_utils.split_string(last_sentence, "\t")
-                    sent_col.append(cur_sent)
-                    sent_label_col.append(int(cur_sent_label))
-                    final_label_col.append(label_col)
+            elif (line != ""):
+                all_sent_col.append(line.split('\t')[1])
+                all_verdict_col.append(1 if len(labels) > 0 else 0)
+                if (len(labels) == 0):
+                    labels.append('{"subject":[],"object":[],"aspect":[],"predicate":[],"label":""}')
+                all_labels_col.append(labels)
+                labels = []
 
-                last_sentence = shared_utils.clear_string(line, replace_symbol={u'\u3000': u""})
-                label_col = []
-
-        cur_sent, cur_sent_label = shared_utils.split_string(last_sentence, "\t")
-        sent_col.append(cur_sent)
-        sent_label_col.append(int(cur_sent_label))
-        final_label_col.append(label_col)
-
-        return sent_col, sent_label_col, final_label_col
+        return all_sent_col, all_verdict_col, all_labels_col
 
 
 ########################################################################################################################
@@ -55,6 +48,10 @@ def bert_mapping_char(bert_token_col, gold_char_col):
     for index in range(len(bert_token_col)):
         seq_map, bert_index, char_index = {}, 1, 0
         seq_bert_token, seq_gold_char = bert_token_col[index], gold_char_col[index]
+        # print(seq_bert_token)
+        # print("---")
+        # print(seq_gold_char)
+        # raise Exception("stop")
 
         while bert_index < len(seq_bert_token) and char_index < len(seq_gold_char):
             seq_map[char_index] = bert_index
@@ -73,7 +70,7 @@ def bert_mapping_char(bert_token_col, gold_char_col):
             if seq_bert_token[bert_index].find("##") != -1:
                 bert_length = len(seq_bert_token[bert_index]) - 2
 
-            while char_length < bert_length:
+            while char_length < bert_length and char_index + 1 < len(seq_gold_char):
                 char_index = char_index + 1
                 seq_map[char_index] = bert_index
                 char_length += len(seq_gold_char[char_index])
@@ -92,7 +89,7 @@ def bert_mapping_char(bert_token_col, gold_char_col):
 
 def convert_label_dict_by_mapping(label_col, mapping_col):
     """
-    :param label_col: [{"entity_1": {(s_index, e_index)}}]
+    :param label_col: [{"subject": {(s_index, e_index)}}]
     :param mapping_col: [{char_index: bert_index]}]
     :return:
     """
@@ -115,7 +112,7 @@ def convert_label_dict_by_mapping(label_col, mapping_col):
 
                 sequence_label[key][elem_index] = [sequence_map[s_index], sequence_map[e_index]]
 
-                if key == "result":
+                if key == "predicate":
                     sequence_label[key][elem_index].append(elem_position[-1])
 
         for key in sequence_label.keys():
@@ -129,7 +126,7 @@ def convert_label_dict_by_mapping(label_col, mapping_col):
 
 def convert_eng_label_dict_by_mapping(label_col, mapping_col):
     """
-    :param label_col: [{"entity_1": {(s_index, e_index)}}]
+    :param label_col: [{"subject": {(s_index, e_index)}}]
     :param mapping_col: {bert_index: [char_index]}
     :return:
     """
@@ -156,7 +153,7 @@ def convert_eng_label_dict_by_mapping(label_col, mapping_col):
                 else:
                     sequence_label[key][elem_index] = [sequence_map[s_index][0], sequence_map[e_index][-1]]
 
-                if key == "result":
+                if key == "predicate":
                     sequence_label[key][elem_index].append(elem_position[-1])
 
         for key in sequence_label.keys():
@@ -168,39 +165,39 @@ def convert_eng_label_dict_by_mapping(label_col, mapping_col):
     return convert_label_col
 
 
-def convert_tuple_pair_by_mapping(tuple_pair_col, mapping_col):
+def convert_pair_tuple_by_mapping(pair_tuple_col, mapping_col):
     """
-    :param tuple_pair_col:
+    :param pair_tuple_col:
     :param mapping_col:
     :return:
     """
-    convert_tuple_pair_col = []
+    convert_pair_tuple_col = []
 
-    for index in range(len(tuple_pair_col)):
-        sequence_tuple_pair, sequence_map = tuple_pair_col[index], mapping_col[index]
+    for index in range(len(pair_tuple_col)):
+        sequence_pair_tuple, sequence_map = pair_tuple_col[index], mapping_col[index]
 
-        new_sequence_tuple_pair = []
-        for pair_index in range(len(sequence_tuple_pair)):
-            new_tuple_pair = []
+        new_sequence_pair_tuple = []
+        for pair_index in range(len(sequence_pair_tuple)):
+            new_pair_tuple = []
             for k in range(4):
-                s_index = sequence_tuple_pair[pair_index][k][0]
-                e_index = sequence_tuple_pair[pair_index][k][1]
+                s_index = sequence_pair_tuple[pair_index][k][0]
+                e_index = sequence_pair_tuple[pair_index][k][1]
 
                 if s_index == -1 or e_index == -1:
-                    new_tuple_pair.append((-1, -1))
+                    new_pair_tuple.append((-1, -1))
                     continue
 
                 new_s_index, new_e_index = sequence_map[s_index], sequence_map[e_index]
-                new_tuple_pair.append((new_s_index, new_e_index))
+                new_pair_tuple.append((new_s_index, new_e_index))
 
             # add polarity.
-            new_tuple_pair.append(sequence_tuple_pair[pair_index][4])
+            new_pair_tuple.append(sequence_pair_tuple[pair_index][4])
 
-            new_sequence_tuple_pair.append(new_tuple_pair)
+            new_sequence_pair_tuple.append(new_pair_tuple)
 
-        convert_tuple_pair_col.append(new_sequence_tuple_pair)
+        convert_pair_tuple_col.append(new_sequence_pair_tuple)
 
-    return convert_tuple_pair_col
+    return convert_pair_tuple_col
 
 
 def token_char_convert_to_token_bert(bert_token_col, token_char, mapping_col):
@@ -249,7 +246,7 @@ def get_sequence_label_item(position_symbol, polarity, elem_type, special_symbol
     :return:
     """
     polarity_dict = {-1: "Negative", 0: "Equal", 1: "Positive", 2: "None"}
-    if elem_type == "result" and special_symbol:
+    if elem_type == "predicate" and special_symbol:
         return position_symbol + "-" + polarity_dict[polarity]
     else:
         return position_symbol
@@ -269,7 +266,7 @@ def each_elem_convert_to_multi_sequence_label(sequence_token, each_elem, elem_ty
     for elem_position in each_elem:
         s_index, e_index = elem_position[0], elem_position[1]
 
-        if elem_type == "result":
+        if elem_type == "predicate":
             polarity = elem_position[-1]
             polarity_col.append(polarity)
         else:
@@ -296,7 +293,7 @@ def elem_dict_convert_to_multi_sequence_label(token_col, label_col, special_symb
     :return:
     """
     elem_pair_col, polarity_col, result_sequence_label_col = [], [], []
-    elem_col = ["entity_1", "entity_2", "aspect", "result"]
+    elem_col = ["subject", "object", "aspect", "predicate"]
 
     for index in range(len(token_col)):
         sent_multi_col = []
@@ -310,7 +307,7 @@ def elem_dict_convert_to_multi_sequence_label(token_col, label_col, special_symb
             # result may be add special symbol label system.
             else:
                 sequence_label, cur_polarity = each_elem_convert_to_multi_sequence_label(
-                    token_col[index], label_col[index][elem], "result", special_symbol
+                    token_col[index], label_col[index][elem], "predicate", special_symbol
                 )
                 polarity_col.append(cur_polarity)
                 result_sequence_label_col.append(sequence_label)
@@ -324,21 +321,21 @@ def elem_dict_convert_to_multi_sequence_label(token_col, label_col, special_symb
 ########################################################################################################################
 
 
-def get_tuple_pair_num(tuple_pair_col):
+def get_pair_tuple_num(pair_tuple_col):
     """
-    :param tuple_pair_col:
+    :param pair_tuple_col:
     :return:
     """
-    pair_num, null_tuple_pair = 0, [(-1, -1)] * 5
+    pair_num, null_pair_tuple = 0, [(-1, -1)] * 5
 
-    for index in range(len(tuple_pair_col)):
+    for index in range(len(pair_tuple_col)):
         # traverse each pair.
-        for pair_index in range(len(tuple_pair_col[index])):
+        for pair_index in range(len(pair_tuple_col[index])):
             # skip null tuple pair.
-            if tuple_pair_col[index][pair_index] == null_tuple_pair:
+            if pair_tuple_col[index][pair_index] == null_pair_tuple:
                 continue
 
-            # print(tuple_pair_col[index][pair_index])
+            # print(pair_tuple_col[index][pair_index])
             pair_num += 1
 
     return pair_num
@@ -539,11 +536,11 @@ def generate_train_pair_data(data_representation, data_label):
     return final_representation, final_label
 
 
-def create_polarity_train_data(config, tuple_pair_col, feature_out, bert_feature_out, feature_type=1):
+def create_polarity_train_data(config, pair_tuple_col, feature_out, bert_feature_out, feature_type=1):
     """
     :param config:
     :param feature_out:
-    :param tuple_pair_col:
+    :param pair_tuple_col:
     :param bert_feature_out:
     :param feature_type:
     :return:
@@ -551,11 +548,11 @@ def create_polarity_train_data(config, tuple_pair_col, feature_out, bert_feature
     representation_col, polarity_col, hidden_size = [], [], 5
     encode_hidden_size = 768 if config.model_mode == "bert" else config.hidden_size * 2
 
-    for index in range(len(tuple_pair_col)):
-        for pair_index in range(len(tuple_pair_col[index])):
+    for index in range(len(pair_tuple_col)):
+        for pair_index in range(len(pair_tuple_col[index])):
             each_pair_representation = []
             for elem_index in range(4):
-                s, e = tuple_pair_col[index][pair_index][elem_index]
+                s, e = pair_tuple_col[index][pair_index][elem_index]
                 if s == -1:
                     # 采用5维 + 768维
                     if feature_type == 0:
@@ -599,8 +596,8 @@ def create_polarity_train_data(config, tuple_pair_col, feature_out, bert_feature
 
             representation_col.append(cur_representation)
 
-            assert tuple_pair_col[index][pair_index][-1][0] in {-1, 0, 1, 2}, "[ERROR] Tuple Pair Col Error."
-            polarity_col.append([tuple_pair_col[index][pair_index][-1][0] + 1])
+            assert pair_tuple_col[index][pair_index][-1][0] in {-1, 0, 1, 2}, "[ERROR] Tuple Pair Col Error."
+            polarity_col.append([pair_tuple_col[index][pair_index][-1][0] + 1])
 
     return representation_col, polarity_col
 
@@ -626,33 +623,33 @@ def get_after_pair_representation(pair_hat, representation):
     return representation
 
 
-def create_polarity_multi_label(token_col, tuple_pair_col):
+def create_polarity_multi_label(token_col, pair_tuple_col):
     """
     :param token_col:
-    :param tuple_pair_col:
+    :param pair_tuple_col:
     :return:
     """
     final_label_col = []
 
     for index in range(len(token_col)):
         final_label_col.append(create_sequence_polarity_multi_label(
-            len(token_col[index]), tuple_pair_col[index]
+            len(token_col[index]), pair_tuple_col[index]
         ))
 
     return final_label_col
 
 
-def create_sequence_polarity_multi_label(sequence_length, tuple_pair_col):
+def create_sequence_polarity_multi_label(sequence_length, pair_tuple_col):
     """
     :param sequence_length:
-    :param tuple_pair_col: [pair_num, tuple_pair]
+    :param pair_tuple_col: [pair_num, pair_tuple]
     :return: [polarity_num, elem_num, sequence_length]
     """
     sequence_polarity_multi_label = [copy.deepcopy(create_init_multi_label(sequence_length)) for _ in range(4)]
 
-    for index in range(len(tuple_pair_col)):
-        sequence_polarity_multi_label = change_sequence_label_by_tuple_pair(
-            sequence_polarity_multi_label, tuple_pair_col[index]
+    for index in range(len(pair_tuple_col)):
+        sequence_polarity_multi_label = change_sequence_label_by_pair_tuple(
+            sequence_polarity_multi_label, pair_tuple_col[index]
         )
 
     return sequence_polarity_multi_label
@@ -666,16 +663,16 @@ def create_init_multi_label(sequence_length):
     return shared_utils.create_matrix(4, sequence_length, default_value='O')
 
 
-def change_sequence_label_by_tuple_pair(sequence_multi_label, tuple_pair):
+def change_sequence_label_by_pair_tuple(sequence_multi_label, pair_tuple):
     """
     :param sequence_multi_label: [4, 4, sequence_label]
-    :param tuple_pair: [(s_index, e_index)]
+    :param pair_tuple: [(s_index, e_index)]
     :return:
     """
-    polarity_index = tuple_pair[-1][0] + 1
+    polarity_index = pair_tuple[-1][0] + 1
 
-    for index in range(len(tuple_pair) - 1):
-        s_index, e_index = tuple_pair[index]
+    for index in range(len(pair_tuple) - 1):
+        s_index, e_index = pair_tuple[index]
         if s_index == -1 or e_index == -1:
             continue
 
@@ -693,16 +690,16 @@ def change_sequence_label_by_tuple_pair(sequence_multi_label, tuple_pair):
 
 
 
-def create_polarity_label(tuple_pair_col):
+def create_polarity_label(pair_tuple_col):
     """
-    :param tuple_pair_col:
+    :param pair_tuple_col:
     :return:
     """
     polarity_col = []
-    for index in range(len(tuple_pair_col)):
+    for index in range(len(pair_tuple_col)):
         sequence_polarity = [0] * 4
-        for pair_index in range(len(tuple_pair_col[index])):
-            sequence_polarity[tuple_pair_col[index][pair_index][-1][0] + 1] = 1
+        for pair_index in range(len(pair_tuple_col[index])):
+            sequence_polarity[pair_tuple_col[index][pair_index][-1][0] + 1] = 1
 
         polarity_col.append(sequence_polarity)
 
@@ -710,56 +707,56 @@ def create_polarity_label(tuple_pair_col):
 
 
 
-def convert_eng_tuple_pair_by_mapping(tuple_pair_col, mapping_col):
+def convert_eng_pair_tuple_by_mapping(pair_tuple_col, mapping_col):
     """
-    :param tuple_pair_col:
+    :param pair_tuple_col:
     :param mapping_col: {token_index: [bert_index]}
     :return:
     """
-    convert_tuple_pair_col = []
+    convert_pair_tuple_col = []
 
-    for index in range(len(tuple_pair_col)):
-        sequence_tuple_pair, sequence_map = tuple_pair_col[index], mapping_col[index]
+    for index in range(len(pair_tuple_col)):
+        sequence_pair_tuple, sequence_map = pair_tuple_col[index], mapping_col[index]
 
-        new_sequence_tuple_pair = []
-        for pair_index in range(len(sequence_tuple_pair)):
-            new_tuple_pair = []
+        new_sequence_pair_tuple = []
+        for pair_index in range(len(sequence_pair_tuple)):
+            new_pair_tuple = []
             for k in range(4):
-                s_index = sequence_tuple_pair[pair_index][k][0]
-                e_index = sequence_tuple_pair[pair_index][k][1]
+                s_index = sequence_pair_tuple[pair_index][k][0]
+                e_index = sequence_pair_tuple[pair_index][k][1]
 
                 if s_index == -1 or e_index == -1:
-                    new_tuple_pair.append((-1, -1))
+                    new_pair_tuple.append((-1, -1))
                     continue
 
                 new_s_index, new_e_index = sequence_map[s_index][0], sequence_map[e_index][-1]
-                new_tuple_pair.append((new_s_index, new_e_index))
+                new_pair_tuple.append((new_s_index, new_e_index))
 
             # add polarity.
-            new_tuple_pair.append(sequence_tuple_pair[pair_index][4])
+            new_pair_tuple.append(sequence_pair_tuple[pair_index][4])
 
-            new_sequence_tuple_pair.append(new_tuple_pair)
+            new_sequence_pair_tuple.append(new_pair_tuple)
 
-        convert_tuple_pair_col.append(new_sequence_tuple_pair)
+        convert_pair_tuple_col.append(new_sequence_pair_tuple)
 
-    return convert_tuple_pair_col
+    return convert_pair_tuple_col
 
 
-def create_polarity_train_data_infer_sent(tuple_pair_col, feature_out, bert_feature_out, feature_type=1):
+def create_polarity_train_data_infer_sent(pair_tuple_col, feature_out, bert_feature_out, feature_type=1):
     """
     :param feature_out:
-    :param tuple_pair_col:
+    :param pair_tuple_col:
     :param bert_feature_out:
     :param feature_type:
     :return:
     """
     representation_col, polarity_col, hidden_size = [], [], 5
 
-    for index in range(len(tuple_pair_col)):
-        for pair_index in range(len(tuple_pair_col[index])):
+    for index in range(len(pair_tuple_col)):
+        for pair_index in range(len(pair_tuple_col[index])):
             each_pair_representation = []
             for elem_index in range(4):
-                s, e = tuple_pair_col[index][pair_index][elem_index]
+                s, e = pair_tuple_col[index][pair_index][elem_index]
                 if s == -1:
                     # 采用5维 + 768维
                     if feature_type == 0:
@@ -803,7 +800,7 @@ def create_polarity_train_data_infer_sent(tuple_pair_col, feature_out, bert_feat
 
             representation_col.append(cur_representation)
 
-            assert tuple_pair_col[index][pair_index][-1][0] in {-1, 0, 1, 2}, "[ERROR] Tuple Pair Col Error."
-            polarity_col.append([tuple_pair_col[index][pair_index][-1][0] + 1])
+            assert pair_tuple_col[index][pair_index][-1][0] in {-1, 0, 1, 2}, "[ERROR] Tuple Pair Col Error."
+            polarity_col.append([pair_tuple_col[index][pair_index][-1][0] + 1])
 
     return representation_col, polarity_col
